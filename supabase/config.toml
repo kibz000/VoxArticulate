@@ -1,0 +1,4 @@
+project_id = "voxarticulate"
+
+[functions.communication-coach]
+verify_jwt = true
