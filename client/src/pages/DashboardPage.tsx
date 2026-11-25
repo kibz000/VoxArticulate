@@ -143,7 +143,10 @@ export default function DashboardPage() {
   }, [user])
 
   useEffect(() => {
-    void loadDashboard()
+    const start = window.setTimeout(() => {
+      void loadDashboard()
+    }, 0)
+    return () => window.clearTimeout(start)
   }, [loadDashboard])
 
   const completedCourses = courses.filter(
