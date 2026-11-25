@@ -590,7 +590,10 @@ export default function CommunicationLabPage() {
               )}
               <span className="self-center text-xs text-slate-500">Microphone audio is sent to the live voice service while connected.</span>
             </div>
-            <audio ref={remoteAudioRef} autoPlay className="hidden" />
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold text-slate-500">AI voice output</p>
+              <audio ref={remoteAudioRef} autoPlay controls className="w-full max-w-sm" />
+            </div>
             {liveConversation.length > 0 && (
               <div className="mt-6 max-h-80 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 p-4">
                 {liveConversation.map((turn, index) => (
