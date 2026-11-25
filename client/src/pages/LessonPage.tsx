@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -162,7 +162,10 @@ export default function LessonPage() {
   }, [lessonId, user])
 
   useEffect(() => {
-    if (!lesson || !course || !user) return
+    const activeLesson = lesson
+    const activeCourse = course
+    const activeUser = user
+    if (!activeLesson || !activeCourse || !activeUser) return
 
     let elapsedSeconds = 0
     let saving = false
@@ -176,8 +179,8 @@ export default function LessonPage() {
         const { data: existing, error: readError } = await supabase
           .from('lesson_progress')
           .select('time_spent_seconds, is_completed, completed_at')
-          .eq('user_id', user.id)
-          .eq('lesson_id', lesson.id)
+          .eq('user_id', activeUser.id)
+          .eq('lesson_id', activeLesson.id)
           .maybeSingle()
 
         if (readError) throw readError
@@ -187,9 +190,9 @@ export default function LessonPage() {
           .from('lesson_progress')
           .upsert(
             {
-              user_id: user.id,
-              course_id: course.id,
-              lesson_id: lesson.id,
+              user_id: activeUser.id,
+              course_id: activeCourse.id,
+              lesson_id: activeLesson.id,
               is_completed: existing?.is_completed ?? false,
               completed_at: existing?.completed_at ?? null,
               time_spent_seconds: (existing?.time_spent_seconds ?? 0) + secondsToSave,
