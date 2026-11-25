@@ -134,7 +134,6 @@ export default function CommunicationLabPage() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const transcriptRef = useRef('')
   const lastTurnTranscriptLengthRef = useRef(0)
-  const startedAtRef = useRef<number | null>(null)
 
   const metrics = useMemo(
     () => analyseSpeech(transcript, elapsedSeconds),
@@ -169,8 +168,8 @@ export default function CommunicationLabPage() {
   useEffect(() => {
     if (!listening) return
     const timer = window.setInterval(() => {
-      if (startedAtRef.current !== null) {
-        setElapsedSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000))
+      if (document.visibilityState === 'visible') {
+        setElapsedSeconds(previous => previous + 1)
       }
     }, 1000)
     return () => window.clearInterval(timer)
@@ -240,8 +239,6 @@ export default function CommunicationLabPage() {
 
     try {
       recognitionRef.current = recognition
-      startedAtRef.current = Date.now()
-      setElapsedSeconds(0)
       setListening(true)
       recognition.start()
     } catch {
@@ -309,7 +306,6 @@ export default function CommunicationLabPage() {
     transcriptRef.current = ''
     lastTurnTranscriptLengthRef.current = 0
     setConversation([])
-    startedAtRef.current = null
     setListening(false)
     setInterim('')
     setTranscript('')
@@ -559,7 +555,7 @@ export default function CommunicationLabPage() {
         </div>
 
         <p className="mt-8 text-center text-xs leading-6 text-slate-500">
-          Current phase: browser-based speech recognition and spoken feedback. The next phase will connect a secure AI conversation service; this browser coach does not yet generate live AI dialogue.
+          Speech recognition and spoken replies run in your browser. AI conversation runs through an authenticated Supabase Edge Function; its server-side API secret must be configured before it can respond.
         </p>
       </div>
     </main>
