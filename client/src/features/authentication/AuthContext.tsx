@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useContext,
@@ -6,7 +5,6 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabaseClient'
 
@@ -28,24 +26,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let mounted = true
-
-    async function loadSession() {
-      const { data, error } = await supabase.auth.getSession()
-
-      if (!mounted) return
-
-      if (error) {
-        console.error('Unable to retrieve authentication session:', error)
-      }
-
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    }
-
-    void loadSession()
-
+    // Supabase emits INITIAL_SESSION when this listener is registered. Using
+    // one source of truth prevents a delayed getSession() response overwriting
+    // a newer sign-in or sign-out event.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, currentSession) => {
@@ -54,10 +37,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false)
     })
 
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [])
 
   return (
