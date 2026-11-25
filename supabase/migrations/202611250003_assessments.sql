@@ -49,6 +49,7 @@ create table if not exists public.assessment_answers (
 alter table public.assessments enable row level security;
 alter table public.assessment_questions enable row level security;
 alter table public.assessment_answer_keys enable row level security;
+revoke all on public.assessment_answer_keys from anon, authenticated;
 alter table public.assessment_attempts enable row level security;
 alter table public.assessment_answers enable row level security;
 
@@ -111,7 +112,7 @@ begin
     raise exception 'Authentication is required.';
   end if;
 
-  if jsonb_typeof(p_answers) <> 'array' then
+  if p_answers is null or jsonb_typeof(p_answers) is distinct from 'array' then
     raise exception 'Answers must be supplied as an array.';
   end if;
 
