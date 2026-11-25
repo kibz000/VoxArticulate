@@ -315,8 +315,26 @@ export default function CommunicationLabPage() {
     liveStartedAtRef.current = null
 
     try {
-      if (realtimeChannelRef.current?.readyState === 'open') {
-        realtimeChannelRef.current.send(JSON.stringify({ type: 'session.close' }))
+      const channel = realtimeChannelRef.current
+      if (channel?.readyState === 'open') {
+        await new Promise<void>(resolve => {
+          const finish = () => {
+            window.clearTimeout(timeout)
+            channel.removeEventListener('message', handleCloseEvent)
+            resolve()
+          }
+          const handleCloseEvent = (event: MessageEvent) => {
+            try {
+              const payload = JSON.parse(String(event.data)) as { type?: string }
+              if (payload.type === 'session.closed') finish()
+            } catch {
+              // Ignore unrelated events while waiting for graceful close.
+            }
+          }
+          const timeout = window.setTimeout(finish, 1200)
+          channel.addEventListener('message', handleCloseEvent)
+          channel.send(JSON.stringify({ type: 'session.close' }))
+        })
       }
     } catch {
       // The connection may already be closed.
