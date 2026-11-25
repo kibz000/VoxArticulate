@@ -331,7 +331,7 @@ export default function CommunicationLabPage() {
     setLiveVoiceActive(false)
 
     if (user && sessionTranscript.trim()) {
-      const wordCount = (sessionTranscript.match(/[\\p{L}\\p{N}']+/gu) ?? []).length
+      const wordCount = (sessionTranscript.match(/[\p{L}\p{N}']+/gu) ?? []).length
       const fillerCount = (sessionTranscript.match(fillerPattern) ?? []).length
       const { error: saveError } = await supabase
         .from('communication_sessions')
