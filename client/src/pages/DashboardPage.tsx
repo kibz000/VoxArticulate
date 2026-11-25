@@ -58,6 +58,7 @@ export default function DashboardPage() {
   const [learningSeconds, setLearningSeconds] = useState(0)
   const [latestAssessment, setLatestAssessment] = useState<LatestAssessment | null>(null)
   const [speakingSessions, setSpeakingSessions] = useState(0)
+  const [speakingSeconds, setSpeakingSeconds] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -176,13 +177,17 @@ export default function DashboardPage() {
               .maybeSingle(),
             supabase
               .from('communication_sessions')
-              .select('id', { count: 'exact', head: true })
+              .select('duration_seconds')
               .eq('user_id', user.id),
           ])
 
           if (attemptResult.error) throw attemptResult.error
           if (speakingResult.error) throw speakingResult.error
-          setSpeakingSessions(speakingResult.count ?? 0)
+          const speakingRows = speakingResult.data ?? []
+          setSpeakingSessions(speakingRows.length)
+          setSpeakingSeconds(
+            speakingRows.reduce((total, session) => total + (session.duration_seconds ?? 0), 0),
+          )
 
           if (attemptResult.data) {
             const { data: assessment, error: assessmentError } = await supabase
@@ -212,6 +217,8 @@ export default function DashboardPage() {
   ).length
   const learningHours = Math.floor(learningSeconds / 3600)
   const learningMinutes = Math.floor((learningSeconds % 3600) / 60)
+  const speakingHours = Math.floor(speakingSeconds / 3600)
+  const speakingMinutes = Math.floor((speakingSeconds % 3600) / 60)
 
   return (
     <main className="min-h-screen bg-vox-cream px-6 py-12">
@@ -247,7 +254,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[
                 { label: 'Enrolled courses', value: String(courses.length), icon: BookOpen },
                 { label: 'Completed courses', value: String(completedCourses), icon: GraduationCap },
@@ -255,6 +262,7 @@ export default function DashboardPage() {
                 { label: 'Learning time', value: learningHours ? `${learningHours}h ${learningMinutes}m` : `${learningMinutes}m`, icon: Clock3 },
                 { label: 'Latest assessment', value: latestAssessment ? `${latestAssessment.percentage}%` : '—', icon: Target },
                 { label: 'Speaking sessions', value: String(speakingSessions), icon: Mic },
+                { label: 'Speaking time', value: speakingHours ? `${speakingHours}h ${speakingMinutes}m` : `${speakingMinutes}m`, icon: Clock3 },
               ].map(item => (
                 <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-6">
                   <item.icon className="text-vox-teal" size={25} />
