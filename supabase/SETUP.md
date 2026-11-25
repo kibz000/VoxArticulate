@@ -21,12 +21,14 @@ supabase login
 supabase link --project-ref YOUR_SUPABASE_PROJECT_REF
 supabase secrets set OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 supabase secrets set OPENAI_MODEL=gpt-5.5
+supabase secrets set OPENAI_REALTIME_MODEL=gpt-realtime-2.1
 supabase functions deploy communication-coach
+supabase functions deploy realtime-token
 ```
 
 Replace the placeholders with your own project reference and API key. Do not put the OpenAI key in `client/.env.local`, Vite variables, GitHub source files, or browser code.
 
-The Edge Function uses the OpenAI Responses API. API usage may incur charges under the OpenAI API account. The browser's built-in speech recognition and speech synthesis are separate browser capabilities and availability varies by browser and device.
+The Edge Function uses the OpenAI Responses API. API usage may incur charges under the OpenAI API account. The Communication Lab includes a browser speech-recognition fallback and a direct WebRTC speech-to-speech mode. The live mode obtains a short-lived Realtime client secret from the authenticated `realtime-token` Edge Function; the permanent API key remains server-side. Live voice usage may incur additional API charges.
 
 ## Local browser support
 
