@@ -2,6 +2,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, LockKeyhole, Mic2 } from 'lucide-react'
+import PasswordField from '../components/PasswordField'
 import { supabase } from '../lib/supabaseClient'
 import { getSafeNextPath } from '../features/authentication/authUtils'
 
@@ -97,20 +98,13 @@ export default function LoginPage() {
             />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-bold text-vox-navy">
-              Password
-            </label>
-            <input
-              required
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={event => setPassword(event.target.value)}
-              placeholder="Enter your password"
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-vox-teal"
-            />
-          </div>
+          <PasswordField
+            label="Password"
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            placeholder="Enter your password"
+          />
 
           {error && (
             <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
