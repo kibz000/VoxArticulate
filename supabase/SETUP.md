@@ -6,6 +6,7 @@ Run the SQL files in `migrations/` in filename order in the Supabase SQL Editor:
 
 1. `202611250001_profiles.sql`
 2. `202611250002_communication_sessions.sql`
+3. `202611250003_assessments.sql`
 
 The application also uses existing `courses`, `course_modules`, `lessons`, `enrollments`, and `lesson_progress` tables. These migrations do not recreate those existing application tables.
 
