@@ -124,6 +124,9 @@ export default function CommunicationLabPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [coachMessage, setCoachMessage] = useState('Choose a practice mode, then start speaking. I will show your transcript and give you practical speaking pointers.')
   const [conversation, setConversation] = useState<ConversationTurn[]>([])
+  const [liveConversation, setLiveConversation] = useState<ConversationTurn[]>([])
+  const [liveVoiceActive, setLiveVoiceActive] = useState(false)
+  const [liveVoiceConnecting, setLiveVoiceConnecting] = useState(false)
   const [coachThinking, setCoachThinking] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -132,6 +135,10 @@ export default function CommunicationLabPage() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const realtimePeerRef = useRef<RTCPeerConnection | null>(null)
+  const realtimeStreamRef = useRef<MediaStream | null>(null)
+  const realtimeChannelRef = useRef<RTCDataChannel | null>(null)
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null)
   const transcriptRef = useRef('')
   const lastTurnTranscriptLengthRef = useRef(0)
 
@@ -177,8 +184,128 @@ export default function CommunicationLabPage() {
 
   useEffect(() => () => {
     recognitionRef.current?.abort()
+    realtimeChannelRef.current?.close()
+    realtimePeerRef.current?.close()
+    realtimeStreamRef.current?.getTracks().forEach(track => track.stop())
     window.speechSynthesis?.cancel()
   }, [])
+
+  async function startLiveVoice() {
+    setError('')
+    setLiveVoiceConnecting(true)
+    setLiveConversation([])
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('This browser cannot access a microphone. Use a current browser on a secure HTTPS connection.')
+      }
+
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke(
+        'realtime-token',
+        { body: { mode } },
+      )
+      if (tokenError) throw tokenError
+      if (typeof tokenData?.value !== 'string') {
+        throw new Error(tokenData?.error || 'The live voice token could not be created. Check the Supabase function setup.')
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      realtimeStreamRef.current = stream
+
+      const peer = new RTCPeerConnection()
+      realtimePeerRef.current = peer
+
+      peer.ontrack = event => {
+        const audio = remoteAudioRef.current
+        if (audio && event.streams[0]) {
+          audio.srcObject = event.streams[0]
+          void audio.play().catch(() => {
+            setError('Your browser blocked audio playback. Click the page once, then try the live voice session again.')
+          })
+        }
+      }
+
+      stream.getTracks().forEach(track => peer.addTrack(track, stream))
+
+      const channel = peer.createDataChannel('oai-events')
+      realtimeChannelRef.current = channel
+      channel.onmessage = event => {
+        try {
+          const payload = JSON.parse(String(event.data)) as {
+            type?: string
+            transcript?: string
+            delta?: string
+            error?: { message?: string }
+          }
+
+          if (payload.type === 'conversation.item.input_audio_transcription.completed' && payload.transcript?.trim()) {
+            setLiveConversation(previous => [...previous, { role: 'user', content: payload.transcript!.trim() }])
+          }
+
+          if (payload.type === 'response.output_audio_transcript.done' && payload.transcript?.trim()) {
+            setLiveConversation(previous => [...previous, { role: 'assistant', content: payload.transcript!.trim() }])
+          }
+
+          if (payload.type === 'error') {
+            setError(payload.error?.message || 'The live voice session reported an error.')
+          }
+        } catch {
+          // Ignore non-JSON or unrecognised Realtime events.
+        }
+      }
+
+      const offer = await peer.createOffer()
+      await peer.setLocalDescription(offer)
+      if (!offer.sdp) throw new Error('The browser could not create a WebRTC offer.')
+
+      const response = await fetch('https://api.openai.com/v1/realtime/calls', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenData.value}`,
+          'Content-Type': 'application/sdp',
+        },
+        body: offer.sdp,
+      })
+
+      if (!response.ok) {
+        const detail = await response.text()
+        throw new Error(detail || 'The live voice connection was rejected.')
+      }
+
+      const answerSdp = await response.text()
+      await peer.setRemoteDescription({ type: 'answer', sdp: answerSdp })
+      setLiveVoiceActive(true)
+    } catch (err) {
+      realtimeChannelRef.current?.close()
+      realtimePeerRef.current?.close()
+      realtimeStreamRef.current?.getTracks().forEach(track => track.stop())
+      realtimeChannelRef.current = null
+      realtimePeerRef.current = null
+      realtimeStreamRef.current = null
+      setLiveVoiceActive(false)
+      setError(err instanceof Error ? err.message : 'Unable to start the live voice session.')
+    } finally {
+      setLiveVoiceConnecting(false)
+    }
+  }
+
+  function stopLiveVoice() {
+    try {
+      if (realtimeChannelRef.current?.readyState === 'open') {
+        realtimeChannelRef.current.send(JSON.stringify({ type: 'session.close' }))
+      }
+    } catch {
+      // The connection may already be closed.
+    }
+    realtimeChannelRef.current?.close()
+    realtimePeerRef.current?.close()
+    realtimeStreamRef.current?.getTracks().forEach(track => track.stop())
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null
+    realtimeChannelRef.current = null
+    realtimePeerRef.current = null
+    realtimeStreamRef.current = null
+    setLiveVoiceActive(false)
+  }
 
   function speak(text: string) {
     if (!voiceEnabled || !('speechSynthesis' in window)) return
@@ -372,6 +499,45 @@ export default function CommunicationLabPage() {
             <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2">Live speech-to-text</span>
             <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2">Audible coach feedback</span>
             <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2">Saved practice history</span>
+          </div>
+        </section>
+
+        <section className="mt-7 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-vox-teal">Advanced voice mode</p>
+              <h2 className="mt-1 text-xl font-extrabold text-vox-navy">Live AI conversation</h2>
+              <p className="mt-1 text-sm text-slate-500">Speak naturally and hear the AI respond in real time.</p>
+            </div>
+            <div className={`rounded-full px-3 py-2 text-xs font-bold ${liveVoiceActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+              {liveVoiceActive ? 'Live session active' : liveVoiceConnecting ? 'Connecting...' : 'Not connected'}
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="flex flex-wrap gap-3">
+              {!liveVoiceActive ? (
+                <button type="button" onClick={() => void startLiveVoice()} disabled={liveVoiceConnecting} className="inline-flex items-center gap-2 rounded-xl bg-vox-navy px-5 py-3.5 text-sm font-bold text-white hover:bg-vox-teal disabled:opacity-50">
+                  <Mic size={17} /> {liveVoiceConnecting ? 'Connecting voice...' : 'Start live AI voice'}
+                </button>
+              ) : (
+                <button type="button" onClick={stopLiveVoice} className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-3.5 text-sm font-bold text-white hover:bg-rose-700">
+                  <MicOff size={17} /> End live session
+                </button>
+              )}
+              <span className="self-center text-xs text-slate-500">Microphone audio is sent to the live voice service while connected.</span>
+            </div>
+            <audio ref={remoteAudioRef} autoPlay className="hidden" />
+            {liveConversation.length > 0 && (
+              <div className="mt-6 max-h-80 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 p-4">
+                {liveConversation.map((turn, index) => (
+                  <div key={index} className={`max-w-[90%] rounded-2xl p-4 text-sm leading-6 ${turn.role === 'user' ? 'ml-auto bg-teal-50 text-slate-700' : 'border border-slate-200 bg-white text-slate-700'}`}>
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-vox-teal">{turn.role === 'user' ? 'You' : 'VoxArticulate Coach'}</p>
+                    {turn.content}
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-4 text-xs leading-5 text-slate-500">Live voice uses a short-lived session token issued by your authenticated Supabase Edge Function. Your permanent API key never reaches the browser.</p>
           </div>
         </section>
 
