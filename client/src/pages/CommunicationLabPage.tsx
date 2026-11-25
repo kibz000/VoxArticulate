@@ -57,6 +57,11 @@ interface SpeechWindow extends Window {
   webkitSpeechRecognition?: new () => SpeechRecognitionLike
 }
 
+interface ConversationTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 interface SavedSession {
   id: string
   mode: PracticeMode
@@ -147,6 +152,8 @@ export default function CommunicationLabPage() {
   const [speaking, setSpeaking] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [coachMessage, setCoachMessage] = useState('Choose a practice mode, then start speaking. I will show your transcript and give you practical speaking pointers.')
+  const [conversation, setConversation] = useState<ConversationTurn[]>([])
+  const [coachThinking, setCoachThinking] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
@@ -155,6 +162,7 @@ export default function CommunicationLabPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const transcriptRef = useRef('')
+  const lastTurnTranscriptLengthRef = useRef(0)
   const startedAtRef = useRef<number | null>(null)
 
   const metrics = useMemo(
@@ -277,17 +285,59 @@ export default function CommunicationLabPage() {
     setInterim('')
   }
 
-  function finishPractice() {
+  async function finishPractice() {
     if (listening) stopListening()
-    const feedback = coachReply(mode, transcriptRef.current)
-    setCoachMessage(feedback)
-    speak(feedback)
+    const fullTranscript = transcriptRef.current.trim()
+    const newTurn = fullTranscript.slice(lastTurnTranscriptLengthRef.current).trim()
+
+    if (!newTurn) {
+      setError('Speak or type a new response before asking the coach.')
+      return
+    }
+
+    setCoachThinking(true)
+    setError('')
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke(
+        'communication-coach',
+        {
+          body: {
+            mode,
+            transcript: newTurn,
+            history: conversation,
+          },
+        },
+      )
+
+      if (invokeError) throw invokeError
+      const reply = typeof data?.reply === 'string' ? data.reply : ''
+      if (!reply) throw new Error(data?.error || 'The speaking coach returned no response.')
+
+      setConversation(previous => [
+        ...previous,
+        { role: 'user', content: newTurn },
+        { role: 'assistant', content: reply },
+      ])
+      lastTurnTranscriptLengthRef.current = transcriptRef.current.length
+      setCoachMessage(reply)
+      speak(reply)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'The AI speaking coach is not available. Check that its Supabase Edge Function and API secret have been configured.',
+      )
+    } finally {
+      setCoachThinking(false)
+    }
   }
 
   function resetPractice() {
     recognitionRef.current?.abort()
     recognitionRef.current = null
     transcriptRef.current = ''
+    lastTurnTranscriptLengthRef.current = 0
+    setConversation([])
     startedAtRef.current = null
     setListening(false)
     setInterim('')
@@ -417,6 +467,17 @@ export default function CommunicationLabPage() {
                   </div>
                 </div>
 
+                {conversation.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    {conversation.map((turn, index) => (
+                      <div key={index} className={`max-w-[90%] rounded-2xl p-4 text-sm leading-6 ${turn.role === 'user' ? 'ml-auto rounded-br-sm bg-teal-50 text-slate-700' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-700'}`}>
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-vox-teal">{turn.role === 'user' ? 'You' : 'VoxArticulate Coach'}</p>
+                        {turn.content}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-7 flex flex-col items-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
                   <div className={`relative flex h-24 w-24 items-center justify-center rounded-full ${listening ? 'bg-rose-100 text-rose-600' : 'bg-teal-50 text-vox-teal'}`}>
                     {listening && <span className="absolute inset-0 animate-ping rounded-full border-2 border-rose-300 opacity-40" />}
@@ -463,8 +524,8 @@ export default function CommunicationLabPage() {
                   />
                   {interim && <p className="mt-2 text-sm italic text-slate-500">Hearing: {interim}</p>}
                   <div className="mt-4 flex flex-wrap gap-3">
-                    <button type="button" onClick={finishPractice} disabled={!transcript.trim()} className="inline-flex items-center gap-2 rounded-xl bg-vox-teal px-5 py-3 text-sm font-bold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40">
-                      <Send size={16} /> Get speaking feedback
+                    <button type="button" onClick={() => void finishPractice()} disabled={!transcript.trim() || coachThinking} className="inline-flex items-center gap-2 rounded-xl bg-vox-teal px-5 py-3 text-sm font-bold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40">
+                      <Send size={16} /> {coachThinking ? 'Coach is thinking...' : 'Send to AI coach'}
                     </button>
                     <button type="button" onClick={saveSession} disabled={!user || !transcript.trim() || saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-vox-navy hover:border-vox-teal disabled:cursor-not-allowed disabled:opacity-40">
                       {saving ? 'Saving...' : 'Save session'}
