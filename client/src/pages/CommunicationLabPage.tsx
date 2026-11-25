@@ -127,6 +127,8 @@ export default function CommunicationLabPage() {
   const [liveConversation, setLiveConversation] = useState<ConversationTurn[]>([])
   const [liveVoiceActive, setLiveVoiceActive] = useState(false)
   const [liveVoiceConnecting, setLiveVoiceConnecting] = useState(false)
+  const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0)
+  const [liveSavedMessage, setLiveSavedMessage] = useState('')
   const [coachThinking, setCoachThinking] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -139,6 +141,7 @@ export default function CommunicationLabPage() {
   const realtimeStreamRef = useRef<MediaStream | null>(null)
   const realtimeChannelRef = useRef<RTCDataChannel | null>(null)
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null)
+  const liveStartedAtRef = useRef<number | null>(null)
   const transcriptRef = useRef('')
   const lastTurnTranscriptLengthRef = useRef(0)
 
@@ -171,6 +174,16 @@ export default function CommunicationLabPage() {
     const start = window.setTimeout(() => void loadHistory(), 0)
     return () => window.clearTimeout(start)
   }, [loadHistory])
+
+  useEffect(() => {
+    if (!liveVoiceActive) return
+    const timer = window.setInterval(() => {
+      if (liveStartedAtRef.current !== null) {
+        setLiveElapsedSeconds(Math.floor((Date.now() - liveStartedAtRef.current) / 1000))
+      }
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [liveVoiceActive])
 
   useEffect(() => {
     if (!listening) return
@@ -274,6 +287,9 @@ export default function CommunicationLabPage() {
 
       const answerSdp = await response.text()
       await peer.setRemoteDescription({ type: 'answer', sdp: answerSdp })
+      liveStartedAtRef.current = Date.now()
+      setLiveElapsedSeconds(0)
+      setLiveSavedMessage('')
       setLiveVoiceActive(true)
     } catch (err) {
       realtimeChannelRef.current?.close()
@@ -289,7 +305,15 @@ export default function CommunicationLabPage() {
     }
   }
 
-  function stopLiveVoice() {
+  async function stopLiveVoice() {
+    const durationSeconds = liveStartedAtRef.current
+      ? Math.max(0, Math.floor((Date.now() - liveStartedAtRef.current) / 1000))
+      : liveElapsedSeconds
+    const sessionTranscript = liveConversation
+      .map(turn => `${turn.role === 'user' ? 'Learner' : 'Coach'}: ${turn.content}`)
+      .join('\n')
+    liveStartedAtRef.current = null
+
     try {
       if (realtimeChannelRef.current?.readyState === 'open') {
         realtimeChannelRef.current.send(JSON.stringify({ type: 'session.close' }))
@@ -305,6 +329,28 @@ export default function CommunicationLabPage() {
     realtimePeerRef.current = null
     realtimeStreamRef.current = null
     setLiveVoiceActive(false)
+
+    if (user && sessionTranscript.trim()) {
+      const wordCount = (sessionTranscript.match(/[\\p{L}\\p{N}']+/gu) ?? []).length
+      const fillerCount = (sessionTranscript.match(fillerPattern) ?? []).length
+      const { error: saveError } = await supabase
+        .from('communication_sessions')
+        .insert({
+          user_id: user.id,
+          mode,
+          transcript: sessionTranscript,
+          duration_seconds: durationSeconds,
+          word_count: wordCount,
+          filler_word_count: fillerCount,
+        })
+
+      if (saveError) {
+        setLiveSavedMessage('The session ended, but its history could not be saved.')
+      } else {
+        setLiveSavedMessage('Your live voice session was saved to your account.')
+        await loadHistory()
+      }
+    }
   }
 
   function speak(text: string) {
@@ -520,7 +566,7 @@ export default function CommunicationLabPage() {
                   <Mic size={17} /> {liveVoiceConnecting ? 'Connecting voice...' : 'Start live AI voice'}
                 </button>
               ) : (
-                <button type="button" onClick={stopLiveVoice} className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-3.5 text-sm font-bold text-white hover:bg-rose-700">
+                <button type="button" onClick={() => void stopLiveVoice()} className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-3.5 text-sm font-bold text-white hover:bg-rose-700">
                   <MicOff size={17} /> End live session
                 </button>
               )}
@@ -537,7 +583,9 @@ export default function CommunicationLabPage() {
                 ))}
               </div>
             )}
-            <p className="mt-4 text-xs leading-5 text-slate-500">Live voice uses a short-lived session token issued by your authenticated Supabase Edge Function. Your permanent API key never reaches the browser.</p>
+            {liveVoiceActive && <p className="mt-3 text-xs font-semibold text-vox-teal">Live session time: {Math.floor(liveElapsedSeconds / 60)}m {liveElapsedSeconds % 60}s</p>}
+            {liveSavedMessage && <p role="status" className="mt-3 text-sm font-semibold text-emerald-700">{liveSavedMessage}</p>}
+            <p className="mt-4 text-xs leading-5 text-slate-500">Live voice uses a short-lived session token issued by your authenticated Supabase Edge Function. Your permanent API key never reaches the browser. Ending the session saves its transcript and duration to your learner history.</p>
           </div>
         </section>
 
