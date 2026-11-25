@@ -114,35 +114,6 @@ function analyseSpeech(transcript: string, durationSeconds: number) {
   }
 }
 
-function coachReply(mode: PracticeMode, transcript: string) {
-  const metrics = analyseSpeech(transcript, 0)
-  if (!transcript.trim()) {
-    return 'I did not catch any words yet. Try again, speak clearly and keep your microphone close enough to hear you.'
-  }
-
-  if (metrics.wordCount < 12) {
-    return 'Good start. Try expanding your response with one main point and a supporting example. Aim to speak for another 20–30 seconds.'
-  }
-
-  if (metrics.fillerCount > 2) {
-    return `I picked up ${metrics.fillerCount} possible filler words. Pause briefly instead of filling every silence. Your next attempt should keep the same message with fewer fillers.`
-  }
-
-  if (metrics.averageSentenceLength > 25) {
-    return 'Some sentences are quite long. Break your ideas into shorter statements, then pause between each point so the listener can follow.'
-  }
-
-  if (mode === 'Conversation Simulator') {
-    return 'You have given a response. Now make it more conversational: answer the question directly, add one specific example, then invite the other person to respond.'
-  }
-
-  if (mode === 'Articulation Coach') {
-    return 'Your response has a useful amount of content. Try replacing general words with precise vocabulary and finish with one clear concluding sentence.'
-  }
-
-  return 'Your response has a clear starting point. Strengthen it by stating your central message early, supporting it with an example and ending with a memorable takeaway.'
-}
-
 export default function CommunicationLabPage() {
   const { user } = useAuth()
   const [mode, setMode] = useState<PracticeMode>('Speech Practice')
