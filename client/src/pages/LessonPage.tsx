@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -162,8 +162,72 @@ export default function LessonPage() {
   }, [lessonId, user])
 
   useEffect(() => {
-    void loadLesson()
-  }, [loadLesson])
+    if (!lesson || !course || !user) return
+
+    let elapsedSeconds = 0
+    let saving = false
+
+    async function saveElapsedTime() {
+      if (elapsedSeconds < 1 || saving) return
+      saving = true
+      const secondsToSave = elapsedSeconds
+
+      try {
+        const { data: existing, error: readError } = await supabase
+          .from('lesson_progress')
+          .select('time_spent_seconds, is_completed, completed_at')
+          .eq('user_id', user.id)
+          .eq('lesson_id', lesson.id)
+          .maybeSingle()
+
+        if (readError) throw readError
+
+        const now = new Date().toISOString()
+        const { error: saveError } = await supabase
+          .from('lesson_progress')
+          .upsert(
+            {
+              user_id: user.id,
+              course_id: course.id,
+              lesson_id: lesson.id,
+              is_completed: existing?.is_completed ?? false,
+              completed_at: existing?.completed_at ?? null,
+              time_spent_seconds: (existing?.time_spent_seconds ?? 0) + secondsToSave,
+              last_accessed_at: now,
+            },
+            { onConflict: 'user_id,lesson_id' },
+          )
+
+        if (saveError) throw saveError
+        elapsedSeconds -= secondsToSave
+      } catch (err) {
+        console.error('Unable to save lesson study time:', err)
+      } finally {
+        saving = false
+      }
+    }
+
+    const clock = window.setInterval(() => {
+      if (document.visibilityState === 'visible') elapsedSeconds += 1
+    }, 1000)
+    const periodicSave = window.setInterval(() => {
+      void saveElapsedTime()
+    }, 30000)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') void saveElapsedTime()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pagehide', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(clock)
+      window.clearInterval(periodicSave)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pagehide', handleVisibilityChange)
+      void saveElapsedTime()
+    }
+  }, [lesson, course, user])
 
   const sortedLessons = [...lessons].sort(
     (a, b) => a.position - b.position,
