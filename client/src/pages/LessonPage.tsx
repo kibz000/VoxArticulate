@@ -162,10 +162,10 @@ export default function LessonPage() {
   }, [lessonId, user])
 
   useEffect(() => {
-    const activeLesson = lesson
-    const activeCourse = course
-    const activeUser = user
-    if (!activeLesson || !activeCourse || !activeUser) return
+    const activeLessonId = lesson?.id
+    const activeCourseId = course?.id
+    const activeUserId = user?.id
+    if (!activeLessonId || !activeCourseId || !activeUserId) return
 
     let elapsedSeconds = 0
     let saving = false
@@ -179,8 +179,8 @@ export default function LessonPage() {
         const { data: existing, error: readError } = await supabase
           .from('lesson_progress')
           .select('time_spent_seconds, is_completed, completed_at')
-          .eq('user_id', activeUser.id)
-          .eq('lesson_id', activeLesson.id)
+          .eq('user_id', activeUserId)
+          .eq('lesson_id', activeLessonId)
           .maybeSingle()
 
         if (readError) throw readError
@@ -190,9 +190,9 @@ export default function LessonPage() {
           .from('lesson_progress')
           .upsert(
             {
-              user_id: activeUser.id,
-              course_id: activeCourse.id,
-              lesson_id: activeLesson.id,
+              user_id: activeUserId,
+              course_id: activeCourseId,
+              lesson_id: activeLessonId,
               is_completed: existing?.is_completed ?? false,
               completed_at: existing?.completed_at ?? null,
               time_spent_seconds: (existing?.time_spent_seconds ?? 0) + secondsToSave,
