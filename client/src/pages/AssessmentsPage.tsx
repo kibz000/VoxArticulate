@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertCircle, ArrowRight, CheckCircle2, ClipboardCheck, RefreshCw } from 'lucide-react'
+import { AlertCircle, ArrowRight, ClipboardCheck, RefreshCw } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 
 interface Assessment {
