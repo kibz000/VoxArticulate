@@ -142,6 +142,8 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  // Loading is an external Supabase request; defer it to avoid a synchronous effect update.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     const start = window.setTimeout(() => {
       void loadDashboard()
