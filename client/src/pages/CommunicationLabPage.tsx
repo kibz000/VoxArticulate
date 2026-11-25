@@ -146,7 +146,6 @@ export default function CommunicationLabPage() {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null)
   const [coachMessage, setCoachMessage] = useState('Choose a practice mode, then start speaking. I will show your transcript and give you practical speaking pointers.')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -263,7 +262,6 @@ export default function CommunicationLabPage() {
     try {
       recognitionRef.current = recognition
       startedAtRef.current = Date.now()
-      setSessionStartedAt(startedAtRef.current)
       setElapsedSeconds(0)
       setListening(true)
       recognition.start()
@@ -295,7 +293,6 @@ export default function CommunicationLabPage() {
     setInterim('')
     setTranscript('')
     setElapsedSeconds(0)
-    setSessionStartedAt(null)
     setCoachMessage('Ready for another attempt? Start speaking whenever you are ready.')
     setError('')
     setSavedMessage('')
