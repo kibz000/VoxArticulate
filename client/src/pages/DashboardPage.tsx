@@ -5,6 +5,7 @@ import {
   BookOpen,
   Clock3,
   GraduationCap,
+  Mic,
   Target,
   CheckCircle2,
   RefreshCw,
@@ -38,6 +39,12 @@ interface LessonProgress {
   time_spent_seconds: number | null
 }
 
+interface LatestAssessment {
+  title: string
+  percentage: number
+  submitted_at: string
+}
+
 interface DashboardCourse extends Course {
   progress: number
   completedLessons: number
@@ -49,6 +56,8 @@ export default function DashboardPage() {
   const [courses, setCourses] = useState<DashboardCourse[]>([])
   const [lessonsCompleted, setLessonsCompleted] = useState(0)
   const [learningSeconds, setLearningSeconds] = useState(0)
+  const [latestAssessment, setLatestAssessment] = useState<LatestAssessment | null>(null)
+  const [speakingSessions, setSpeakingSessions] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -63,6 +72,7 @@ export default function DashboardPage() {
         .from('enrollments')
         .select('id, course_id, status')
         .eq('user_id', user.id)
+        .eq('status', 'active')
 
       if (enrollmentError) throw enrollmentError
 
@@ -151,6 +161,52 @@ export default function DashboardPage() {
     return () => window.clearTimeout(start)
   }, [loadDashboard])
 
+  useEffect(() => {
+    if (!user) return
+    const start = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const [attemptResult, speakingResult] = await Promise.all([
+            supabase
+              .from('assessment_attempts')
+              .select('assessment_id, percentage, submitted_at')
+              .eq('user_id', user.id)
+              .order('submitted_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            supabase
+              .from('communication_sessions')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', user.id),
+          ])
+
+          if (attemptResult.error) throw attemptResult.error
+          if (speakingResult.error) throw speakingResult.error
+          setSpeakingSessions(speakingResult.count ?? 0)
+
+          if (attemptResult.data) {
+            const { data: assessment, error: assessmentError } = await supabase
+              .from('assessments')
+              .select('title')
+              .eq('id', attemptResult.data.assessment_id)
+              .maybeSingle()
+            if (assessmentError) throw assessmentError
+            setLatestAssessment({
+              title: assessment?.title ?? 'Assessment',
+              percentage: attemptResult.data.percentage,
+              submitted_at: attemptResult.data.submitted_at,
+            })
+          } else {
+            setLatestAssessment(null)
+          }
+        } catch (err) {
+          console.error('Unable to load recent learning activity:', err)
+        }
+      })()
+    }, 0)
+    return () => window.clearTimeout(start)
+  }, [user])
+
   const completedCourses = courses.filter(
     course => course.totalLessons > 0 && course.progress === 100,
   ).length
@@ -191,12 +247,14 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {[
                 { label: 'Enrolled courses', value: String(courses.length), icon: BookOpen },
                 { label: 'Completed courses', value: String(completedCourses), icon: GraduationCap },
                 { label: 'Lessons completed', value: String(lessonsCompleted), icon: CheckCircle2 },
                 { label: 'Learning time', value: learningHours ? `${learningHours}h ${learningMinutes}m` : `${learningMinutes}m`, icon: Clock3 },
+                { label: 'Latest assessment', value: latestAssessment ? `${latestAssessment.percentage}%` : '—', icon: Target },
+                { label: 'Speaking sessions', value: String(speakingSessions), icon: Mic },
               ].map(item => (
                 <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-6">
                   <item.icon className="text-vox-teal" size={25} />
