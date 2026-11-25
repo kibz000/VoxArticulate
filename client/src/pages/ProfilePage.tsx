@@ -30,8 +30,9 @@ export default function ProfilePage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const activeUser = user
-    if (!activeUser) return
+    const activeUserId = user?.id
+    const initialFullName = user?.user_metadata?.full_name
+    if (!activeUserId) return
     let active = true
 
     async function loadProfile() {
@@ -41,7 +42,7 @@ export default function ProfilePage() {
         const { data, error: queryError } = await supabase
           .from('profiles')
           .select('full_name, country, preferred_language, interests, goals, bio')
-          .eq('id', activeUser.id)
+          .eq('id', activeUserId)
           .maybeSingle()
         if (queryError) throw queryError
         if (!active) return
@@ -51,11 +52,11 @@ export default function ProfilePage() {
         } else {
           const initial = {
             ...emptyProfile,
-            full_name: String(activeUser.user_metadata?.full_name ?? ''),
+            full_name: String(initialFullName ?? ''),
           }
           const { error: insertError } = await supabase
             .from('profiles')
-            .upsert({ id: activeUser.id, ...initial }, { onConflict: 'id' })
+            .upsert({ id: activeUserId, ...initial }, { onConflict: 'id' })
           if (insertError) throw insertError
           if (active) setProfile(initial)
         }
