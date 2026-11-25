@@ -3,8 +3,6 @@ name: Client checks
 on:
   push:
     branches: [main, feature/authentication-hardening]
-  pull_request:
-    branches: [main]
 
 jobs:
   build-and-lint:
