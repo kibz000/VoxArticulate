@@ -162,8 +162,75 @@ export default function LessonPage() {
   }, [lessonId, user])
 
   useEffect(() => {
-    void loadLesson()
-  }, [loadLesson])
+    const activeLessonId = lesson?.id
+    const activeCourseId = course?.id
+    const activeUserId = user?.id
+    if (!activeLessonId || !activeCourseId || !activeUserId) return
+
+    let elapsedSeconds = 0
+    let saving = false
+
+    async function saveElapsedTime() {
+      if (elapsedSeconds < 1 || saving) return
+      saving = true
+      const secondsToSave = elapsedSeconds
+
+      try {
+        const { data: existing, error: readError } = await supabase
+          .from('lesson_progress')
+          .select('time_spent_seconds, is_completed, completed_at')
+          .eq('user_id', activeUserId)
+          .eq('lesson_id', activeLessonId)
+          .maybeSingle()
+
+        if (readError) throw readError
+
+        const now = new Date().toISOString()
+        const { error: saveError } = await supabase
+          .from('lesson_progress')
+          .upsert(
+            {
+              user_id: activeUserId,
+              course_id: activeCourseId,
+              lesson_id: activeLessonId,
+              is_completed: existing?.is_completed ?? false,
+              completed_at: existing?.completed_at ?? null,
+              time_spent_seconds: (existing?.time_spent_seconds ?? 0) + secondsToSave,
+              last_accessed_at: now,
+            },
+            { onConflict: 'user_id,lesson_id' },
+          )
+
+        if (saveError) throw saveError
+        elapsedSeconds -= secondsToSave
+      } catch (err) {
+        console.error('Unable to save lesson study time:', err)
+      } finally {
+        saving = false
+      }
+    }
+
+    const clock = window.setInterval(() => {
+      if (document.visibilityState === 'visible') elapsedSeconds += 1
+    }, 1000)
+    const periodicSave = window.setInterval(() => {
+      void saveElapsedTime()
+    }, 30000)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') void saveElapsedTime()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pagehide', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(clock)
+      window.clearInterval(periodicSave)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pagehide', handleVisibilityChange)
+      void saveElapsedTime()
+    }
+  }, [lesson, course, user])
 
   const sortedLessons = [...lessons].sort(
     (a, b) => a.position - b.position,

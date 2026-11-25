@@ -65,10 +65,12 @@ export default function CoursesPage() {
   useEffect(() => {
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 15000)
-
-    void loadCourses(controller.signal)
+    const start = window.setTimeout(() => {
+      void loadCourses(controller.signal)
+    }, 0)
 
     return () => {
+      window.clearTimeout(start)
       window.clearTimeout(timeout)
       controller.abort()
     }

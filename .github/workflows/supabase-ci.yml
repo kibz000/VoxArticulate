@@ -1,0 +1,18 @@
+name: Supabase function checks
+
+on:
+  push:
+    branches: [main, feature/authentication-hardening]
+
+jobs:
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Edge Functions
+        run: deno check supabase/functions/communication-coach/index.ts supabase/functions/realtime-token/index.ts

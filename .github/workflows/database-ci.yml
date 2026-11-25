@@ -1,0 +1,95 @@
+name: Database migration checks
+
+on:
+  push:
+    branches: [main, feature/authentication-hardening]
+
+jobs:
+  postgres-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: voxarticulate_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d voxarticulate_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Prepare minimal Supabase auth schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d voxarticulate_test -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE SCHEMA auth;
+          CREATE TABLE auth.users (
+            id uuid PRIMARY KEY,
+            raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb
+          );
+          CREATE FUNCTION auth.uid()
+          RETURNS uuid
+          LANGUAGE sql
+          STABLE
+          AS $$
+            SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid
+          $$;
+          SQL
+      - name: Apply migrations in order
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            echo "Applying $migration"
+            psql -h localhost -U postgres -d voxarticulate_test -v ON_ERROR_STOP=1 -f "$migration"
+          done
+      - name: Verify assessment grading and private answer keys
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d voxarticulate_test -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO auth.users (id, raw_user_meta_data)
+          VALUES ('10000000-0000-4000-8000-000000000001', '{"full_name":"CI Learner"}');
+
+          SELECT set_config(
+            'request.jwt.claim.sub',
+            '10000000-0000-4000-8000-000000000001',
+            false
+          );
+
+          SET ROLE authenticated;
+
+          SELECT public.submit_assessment(
+            '00000000-0000-4000-8000-000000000001',
+            '[
+              {"question_id":"00000000-0000-4000-8000-000000000011","selected_option_index":0},
+              {"question_id":"00000000-0000-4000-8000-000000000012","selected_option_index":1},
+              {"question_id":"00000000-0000-4000-8000-000000000013","selected_option_index":2}
+            ]'::jsonb
+          );
+
+          DO $$
+          BEGIN
+            BEGIN
+              PERFORM * FROM public.assessment_answer_keys;
+              RAISE EXCEPTION 'Assessment answer keys must not be readable by learners.';
+            EXCEPTION
+              WHEN insufficient_privilege THEN
+                RAISE NOTICE 'Assessment answer keys are private to learners.';
+            END;
+          END;
+          $$;
+
+          RESET ROLE;
+          SQL

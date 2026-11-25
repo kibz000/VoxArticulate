@@ -2,6 +2,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LockKeyhole, Mic2 } from 'lucide-react'
+import PasswordField from '../components/PasswordField'
+import { validatePassword } from '../features/authentication/passwordUtils'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../features/authentication/AuthContext'
 
@@ -23,8 +25,9 @@ export default function ResetPasswordPage() {
       return
     }
 
-    if (password.length < 8) {
-      setError('Your new password must contain at least 8 characters.')
+    const passwordError = validatePassword(password)
+    if (passwordError) {
+      setError(passwordError)
       return
     }
 
@@ -97,36 +100,22 @@ export default function ResetPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            <div>
-              <label className="mb-2 block text-sm font-bold text-vox-navy">
-                New password
-              </label>
-              <input
-                required
-                minLength={8}
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={event => setPassword(event.target.value)}
-                placeholder="At least 8 characters"
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-vox-teal"
-              />
-            </div>
+            <PasswordField
+              label="New password"
+              value={password}
+              onChange={setPassword}
+              autoComplete="new-password"
+              minLength={8}
+              placeholder="At least 8 characters"
+            />
 
-            <div>
-              <label className="mb-2 block text-sm font-bold text-vox-navy">
-                Confirm new password
-              </label>
-              <input
-                required
-                type="password"
-                autoComplete="new-password"
-                value={confirmation}
-                onChange={event => setConfirmation(event.target.value)}
-                placeholder="Enter your password again"
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-vox-teal"
-              />
-            </div>
+            <PasswordField
+              label="Confirm new password"
+              value={confirmation}
+              onChange={setConfirmation}
+              autoComplete="new-password"
+              placeholder="Enter your password again"
+            />
 
             {error && (
               <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
