@@ -83,7 +83,7 @@ Deno.serve(async (request: Request) => {
     return json(400, { error: 'Your speaking turn must contain between 1 and 5,000 characters.' })
   }
 
-  const previousTurns = (payload.history ?? [])
+  const previousTurns = (Array.isArray(payload.history) ? payload.history : [])
     .slice(-8)
     .filter(
       item =>
@@ -94,12 +94,21 @@ Deno.serve(async (request: Request) => {
     )
     .map(item => ({ role: item.role as 'assistant' | 'user', content: item.content! }))
 
+  const userHash = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(authData.user.id),
+  )
+  const safetyIdentifier = Array.from(new Uint8Array(userHash))
+    .map(value => value.toString(16).padStart(2, '0'))
+    .join('')
+
   try {
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${openAiApiKey}`,
         'Content-Type': 'application/json',
+        'OpenAI-Safety-Identifier': safetyIdentifier,
       },
       body: JSON.stringify({
         model,
