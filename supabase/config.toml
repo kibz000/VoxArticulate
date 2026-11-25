@@ -1,2 +1,5 @@
 [functions.communication-coach]
 verify_jwt = true
+
+[functions.realtime-token]
+verify_jwt = true
