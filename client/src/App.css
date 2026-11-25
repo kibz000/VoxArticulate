@@ -1,0 +1,225 @@
+
+/* ==========================================
+   VOXARTICULATE — VISUAL DESIGN SYSTEM
+   ========================================== */
+
+:root {
+  --vox-navy: #14243a;
+  --vox-dark: #081321;
+  --vox-teal: #0d9488;
+  --vox-mint: #99f6e4;
+  --vox-cream: #faf9f6;
+  --vox-purple: #8b5cf6;
+  --vox-orange: #fb923c;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Manrope', sans-serif;
+}
+
+/* ==========================================
+   HERO BACKGROUND
+   ========================================== */
+
+.hero-section {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 10% 15%,
+      rgba(153, 246, 228, 0.55),
+      transparent 38%
+    ),
+    radial-gradient(
+      ellipse at 90% 20%,
+      rgba(196, 181, 253, 0.30),
+      transparent 35%
+    ),
+    radial-gradient(
+      ellipse at 70% 95%,
+      rgba(251, 191, 151, 0.28),
+      transparent 35%
+    ),
+    linear-gradient(135deg, #ffffff 0%, #f0fdfa 48%, #faf5ff 100%);
+}
+
+.hero-section::before,
+.hero-section::after {
+  position: absolute;
+  z-index: -1;
+  content: '';
+  border-radius: 50%;
+  filter: blur(65px);
+  pointer-events: none;
+}
+
+.hero-section::before {
+  width: 320px;
+  height: 320px;
+  top: 5%;
+  right: 5%;
+  background: rgba(13, 148, 136, 0.16);
+  animation: float-orb 12s ease-in-out infinite alternate;
+}
+
+.hero-section::after {
+  width: 280px;
+  height: 280px;
+  bottom: 0;
+  left: 5%;
+  background: rgba(139, 92, 246, 0.12);
+  animation: float-orb 15s ease-in-out infinite alternate-reverse;
+}
+
+.hero-background-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.20;
+  background-image:
+    linear-gradient(rgba(20, 36, 58, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 36, 58, 0.07) 1px, transparent 1px);
+  background-size: 45px 45px;
+  mask-image: linear-gradient(to bottom, black, transparent 85%);
+}
+
+/* ==========================================
+   ANIMATIONS
+   ========================================== */
+
+@keyframes float-orb {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(35px, -25px, 0) scale(1.15);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.15);
+  }
+
+  50% {
+    box-shadow: 0 0 0 12px rgba(13, 148, 136, 0);
+  }
+}
+
+.hero-content {
+  animation: fade-up 0.9s ease both;
+}
+
+.hero-image {
+  transition: transform 0.7s ease;
+}
+
+.hero-image:hover {
+  transform: scale(1.025);
+}
+
+.interactive-card {
+  transition:
+    transform 0.35s ease,
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
+}
+
+.interactive-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 24px 55px rgba(20, 36, 58, 0.10);
+}
+
+.interactive-button {
+  transition:
+    transform 0.25s ease,
+    background-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.interactive-button:hover {
+  transform: translateY(-3px);
+}
+
+.interactive-button:active {
+  transform: scale(0.97);
+}
+
+.goal-option {
+  transition: all 0.25s ease;
+}
+
+.goal-option[aria-pressed="true"] {
+  background: var(--vox-navy);
+  color: white;
+  border-color: var(--vox-navy);
+  box-shadow: 0 8px 20px rgba(20, 36, 58, 0.15);
+}
+
+/* ==========================================
+   ACCESSIBILITY AND MOBILE
+   ========================================== */
+
+::selection {
+  background: #99f6e4;
+  color: #14243a;
+}
+
+@media (max-width: 640px) {
+  .hero-section::before {
+    width: 200px;
+    height: 200px;
+  }
+
+  .hero-section::after {
+    width: 180px;
+    height: 180px;
+  }
+
+  .hero-background-grid {
+    background-size: 30px 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,103 @@
+
+@import "tailwindcss";
+
+/* =========================================
+   VOXARTICULATE DESIGN SYSTEM
+   ========================================= */
+
+@theme {
+  --color-vox-navy: #14243a;
+  --color-vox-dark: #0b1728;
+  --color-vox-teal: #0d9488;
+  --color-vox-teal-light: #ccfbf1;
+  --color-vox-cream: #faf9f6;
+  --color-vox-muted: #64748b;
+  --color-vox-border: #e5e7eb;
+
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* =========================================
+   GLOBAL RESET
+   ========================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--color-vox-cream);
+  color: var(--color-vox-navy);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* =========================================
+   SELECTION
+   ========================================= */
+
+::selection {
+  background: #99f6e4;
+  color: #14243a;
+}
+
+/* =========================================
+   SCROLLBAR
+   ========================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #faf9f6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* =========================================
+   ACCESSIBILITY
+   ========================================= */
+
+:focus-visible {
+  outline: 3px solid #0d9488;
+  outline-offset: 3px;
+}
